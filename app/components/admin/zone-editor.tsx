@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useBlocker, useNavigation, useSubmit } from "react-router";
 
 import type { Zone, ZoneKind } from "~/lib/types";
@@ -96,6 +96,9 @@ export function ZoneEditor({
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  // Synchronous "is a drag in progress" flag: set during the pointer event,
+  // unaffected by render timing (state updates flush asynchronously).
+  const drawingRef = useRef(false);
 
   const submit = useSubmit();
   const navigation = useNavigation();
@@ -153,6 +156,12 @@ export function ZoneEditor({
     setLocalError(null);
   };
 
+  /**
+   * Read pointer position as normalized page coordinates. MUST be called
+   * synchronously inside the event handler: `e.currentTarget` is only valid
+   * during dispatch, so calling this from a deferred setState updater would
+   * read `null` (React clears currentTarget after the handler returns).
+   */
   const pointerCoords = (e: React.PointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     return {
@@ -166,20 +175,26 @@ export function ZoneEditor({
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     const { x, y } = pointerCoords(e);
+    drawingRef.current = true;
     setDraft({ pageIndex, x0: x, y0: y, x1: x, y1: y });
     setSelectedZoneId(null);
   };
 
   const handlePointerMove = (pageIndex: number) => (e: React.PointerEvent<HTMLDivElement>) => {
-    setDraft((cur) => {
-      if (!cur || cur.pageIndex !== pageIndex) return cur;
-      const { x, y } = pointerCoords(e);
-      return { ...cur, x1: x, y1: y };
-    });
+    if (!drawingRef.current) return;
+    // Resolve coordinates now, while the event is live; only plain numbers
+    // cross into the updater.
+    const { x, y } = pointerCoords(e);
+    setDraft((cur) => (cur && cur.pageIndex === pageIndex ? { ...cur, x1: x, y1: y } : cur));
   };
 
   const handlePointerUp = (pageIndex: number) => (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!draft || draft.pageIndex !== pageIndex) return;
+    const wasDrawing = drawingRef.current;
+    drawingRef.current = false;
+    if (!wasDrawing || !draft || draft.pageIndex !== pageIndex) {
+      setDraft(null);
+      return;
+    }
     const { x, y } = pointerCoords(e);
     const rect = rectFromDraft({ ...draft, x1: x, y1: y });
     setDraft(null);
@@ -297,7 +312,10 @@ export function ZoneEditor({
               onPointerDown={handlePointerDown(p.pageIndex)}
               onPointerMove={handlePointerMove(p.pageIndex)}
               onPointerUp={handlePointerUp(p.pageIndex)}
-              onPointerCancel={() => setDraft(null)}
+              onPointerCancel={() => {
+                drawingRef.current = false;
+                setDraft(null);
+              }}
             >
               <img
                 src={`/api/admin/resumes/${resumeId}/page/${p.pageIndex}?tier=lo`}

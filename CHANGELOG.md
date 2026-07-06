@@ -4,6 +4,13 @@ All notable changes to Resume Vault, newest first.
 
 ## Unreleased
 
+- Fix: drawing a box in the zone editor crashed with "Cannot read properties
+  of null (reading 'getBoundingClientRect')". `pointerCoords(e)` was called
+  inside a `setDraft` updater, which React runs during render (twice under
+  StrictMode) after `e.currentTarget` is already null. Pointer geometry is now
+  resolved synchronously in the handler; only plain numbers enter the updater,
+  with a synchronous `drawingRef` guard so no drag frame is dropped.
+
 - Fix: legitimate embedded/Electron browsers (Cursor's preview, desktop
   in-app browsers) were shown the "private document" bot screen because a bare
   `isbot()` user-agent match hard-blocked at page load. Bot denial now

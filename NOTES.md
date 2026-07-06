@@ -2,6 +2,20 @@
 
 Working notes on *why* things are the way they are. Newest first.
 
+## Zone editor null getBoundingClientRect (2026-07-06)
+
+- Symptom: drawing a zone threw `Cannot read properties of null (reading
+  'getBoundingClientRect')` from `pointerCoords`, via `basicStateReducer` /
+  `useState` in the stack.
+- Cause: `handlePointerMove` called `pointerCoords(e)` *inside* the `setDraft`
+  functional updater. React invokes updaters during the render/commit phase
+  (and twice in StrictMode), which is after the pointer event finished
+  dispatching — at which point React has reset `e.currentTarget` to null.
+- Rule learned: never read from a React synthetic event inside a setState
+  updater. Resolve event-derived values synchronously in the handler and pass
+  only immutable primitives into the updater. Added `drawingRef` so the move
+  guard is synchronous and independent of render flush timing.
+
 ## Bot-guard false positive (2026-07-06)
 
 - Symptom: the owner previewing a link inside Cursor's built-in browser got the
