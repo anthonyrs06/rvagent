@@ -7,17 +7,52 @@ import { isbot } from "isbot";
 import type { RenderToPipeableStreamOptions } from "react-dom/server";
 import { renderToPipeableStream } from "react-dom/server";
 
+import { env } from "~/lib/env.server";
+
 export const streamTimeout = 5_000;
+
+function contentSecurityPolicy(): string {
+  const posthogHosts = [env.posthogHost, "https://us.i.posthog.com", "https://us.posthog.com"]
+    .filter(Boolean)
+    .join(" ");
+  return [
+    "default-src 'self'",
+    // RR hydration payload + Turnstile need inline/external scripts.
+    "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' blob: data:",
+    `connect-src 'self' ${posthogHosts}`,
+    "frame-src https://challenges.cloudflare.com",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join("; ");
+}
+
+function applySecurityHeaders(headers: Headers): void {
+  // Private tool: nothing should ever be indexed or embedded.
+  headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  headers.set("X-Frame-Options", "DENY");
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Referrer-Policy", "no-referrer");
+  headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  // Full CSP only in prod — the Vite dev server needs eval/ws.
+  if (env.isProd) {
+    headers.set("Content-Security-Policy", contentSecurityPolicy());
+  }
+}
 
 export default function handleRequest(
   request: Request,
   responseStatusCode: number,
   responseHeaders: Headers,
   routerContext: EntryContext,
-  loadContext: AppLoadContext,
-  // If you have middleware enabled:
-  // loadContext: RouterContextProvider
+  _loadContext: AppLoadContext,
 ) {
+  applySecurityHeaders(responseHeaders);
+
   // https://httpwg.org/specs/rfc9110.html#HEAD
   if (request.method.toUpperCase() === "HEAD") {
     return new Response(null, {
@@ -31,7 +66,6 @@ export default function handleRequest(
     let userAgent = request.headers.get("user-agent");
 
     // Ensure requests from bots and SPA Mode renders wait for all content to load before responding
-    // https://react.dev/reference/react-dom/server/renderToPipeableStream#waiting-for-all-content-to-load-for-crawlers-and-static-generation
     let readyOption: keyof RenderToPipeableStreamOptions =
       (userAgent && isbot(userAgent)) || routerContext.isSpaMode
         ? "onAllReady"
@@ -51,7 +85,6 @@ export default function handleRequest(
           shellRendered = true;
           const body = new PassThrough({
             final(callback) {
-              // Clear the timeout to prevent retaining the closure and memory leak
               clearTimeout(timeoutId);
               timeoutId = undefined;
               callback();
@@ -75,9 +108,6 @@ export default function handleRequest(
         },
         onError(error: unknown) {
           responseStatusCode = 500;
-          // Log streaming rendering errors from inside the shell.  Don't log
-          // errors encountered during initial shell rendering since they'll
-          // reject and get logged in handleDocumentRequest.
           if (shellRendered) {
             console.error(error);
           }

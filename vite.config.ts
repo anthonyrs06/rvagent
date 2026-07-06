@@ -7,4 +7,8 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  ssr: {
+    // PostHog packages reference browser globals; bundle them for SSR.
+    noExternal: ["posthog-js", "@posthog/react"],
+  },
 });
