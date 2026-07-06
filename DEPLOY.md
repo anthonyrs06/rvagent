@@ -66,13 +66,24 @@ On `https://<service-name>.onrender.com`:
 
 ### 6. PostHog setup
 
-In PostHog → Project Settings:
+Run once after deploy (or re-run when the Render URL changes):
 
-- Enable **Session replay**
-- Add `*.onrender.com` to **Authorized URLs**
-- Confirm live events: `resume_opened_client`, `page_viewed`, `page_dwell`
-- Confirm session replays show masked text and blank canvas (resume content not visible)
-- Admin dashboard "Opens — last 30 days" chart should use PostHog (not first-party fallback)
+```bash
+export POSTHOG_PERSONAL_API_KEY=phx_…   # personal API key
+export POSTHOG_PROJECT_ID=500759
+python3 scripts/posthog-configure.py
+```
+
+Configured domains:
+
+- **Web analytics / toolbar:** `resume-vault-jp6b.onrender.com`, `anthonysadarangani.com`, `localhost:5173`
+- **Session replay:** `*.onrender.com`, `anthonysadarangani.com`, `localhost`
+
+In PostHog → Project Settings, confirm:
+
+- **Session replay** enabled
+- Live events on a viewer session: `resume_opened_client`, `page_viewed`, `page_dwell`
+- Admin dashboard "Opens — last 30 days" chart shows **via PostHog** (not first-party fallback)
 
 ---
 
