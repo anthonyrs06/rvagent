@@ -2,6 +2,21 @@
 
 Working notes on *why* things are the way they are. Newest first.
 
+## Bot-guard false positive (2026-07-06)
+
+- Symptom: the owner previewing a link inside Cursor's built-in browser got the
+  "This is a private document" (reason: bot) screen. `security_events` showed
+  `bot_suspected / isbot_match` at `page_load`.
+- Cause: `isbot()` classifies Electron/embedded user agents as bots, and the
+  loader hard-blocked on *any* `assessRequest().suspected`.
+- Fix: separated `hardBlock` (deny) from `suspected` (telemetry). Only proof
+  denies — `AUTOMATION_UA` tokens, `navigator.webdriver === true`, or
+  `no_client_signals` (a scripted POST that skipped the JS gate). A bare isbot
+  match now only sets the session's "suspected bot" badge. This is *stronger*
+  security, not weaker: UA strings are trivially spoofed, so enforcing on
+  behavior (webdriver + JS execution) is what actually matters, and no resume
+  pixels are ever exposed before the JS challenge + session cookie anyway.
+
 ## UI + verification decisions (2026-07-06)
 
 - **Pixels only ever live in `<canvas>`**: there is no `<img>` for resume

@@ -37,14 +37,19 @@ export async function loader({ request, params }: Route.LoaderArgs): Promise<Vie
   }
   const { link, resume } = validation;
 
-  // Crawlers and obvious scrapers get a contentless page — this also keeps
-  // chat-app link preview bots from ever seeing resume pixels.
+  // Only proven automation (headless/scripted UA tokens) is turned away here.
+  // Fuzzy signals like an isbot match on an Electron/embedded browser fall
+  // through to the gate — the gate is contentless and real pixels require a
+  // JS challenge + session cookie, so nothing leaks by letting them in.
   const requestAssessment = assessRequest(request);
   if (requestAssessment.suspected) {
     await logServerEvent(null, link.id, "bot_suspected", {
       stage: "page_load",
       reasons: requestAssessment.reasons.join(","),
+      blocked: requestAssessment.hardBlock,
     });
+  }
+  if (requestAssessment.hardBlock) {
     return { mode: "unavailable", reason: "bot" };
   }
 
@@ -124,7 +129,9 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
   const requestAssessment = assessRequest(request);
   const signalAssessment = assessClientSignals(signals);
-  if (signals?.webdriver === true || requestAssessment.reasons.includes("isbot_match")) {
+  // Block only on behavioral proof: automation UA tokens, a scripted POST
+  // with no client signals, or navigator.webdriver === true.
+  if (requestAssessment.hardBlock || signalAssessment.hardBlock) {
     await logServerEvent(null, link.id, "bot_suspected", {
       stage: "gate_submit",
       reasons: [...requestAssessment.reasons, ...signalAssessment.reasons].join(","),

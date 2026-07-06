@@ -4,6 +4,14 @@ All notable changes to Resume Vault, newest first.
 
 ## Unreleased
 
+- Fix: legitimate embedded/Electron browsers (Cursor's preview, desktop
+  in-app browsers) were shown the "private document" bot screen because a bare
+  `isbot()` user-agent match hard-blocked at page load. Bot denial now
+  requires behavioral proof — explicit automation UA tokens
+  (`HeadlessChrome`, `curl`, `puppeteer`, ...), `navigator.webdriver`, or a
+  scripted POST with no JS-collected signals. Fuzzy `isbot` matches are
+  demoted to a dashboard "suspected" flag. Added `botguard` unit tests.
+
 - Viewer UI: gated entry (password + invisible Turnstile + honest logging
   disclosure), canvas-only page rendering with lazy tiles and zoom tiers,
   protection pack (right-click/copy/print/shortcut blocking, blank print CSS,
