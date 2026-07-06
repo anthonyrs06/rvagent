@@ -75,6 +75,12 @@ docker build -t resume-vault .
 docker run -p 3000:3000 --env-file .env -v "$PWD/data:/app/data" resume-vault
 ```
 
+## Production on Render
+
+See [`DEPLOY.md`](DEPLOY.md) for the full staged launch guide (Phase 1: `*.onrender.com`, Phase 2: `anthonysadarangani.com` + Turnstile).
+
+Quick summary: push to GitHub → apply `render.yaml` Blueprint → set secrets (`OWNER_PASSWORD`, PostHog keys) → smoke test on `/health` and `/admin`.
+
 ## Data & privacy
 
 Everything lives in `DATA_DIR` (default `./data`): the SQLite database and the

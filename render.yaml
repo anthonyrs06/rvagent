@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: resume-vault
+    runtime: docker
+    plan: starter
+    region: oregon
+    branch: main
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    disk:
+      name: resume-vault-data
+      mountPath: /app/data
+      sizeGB: 2
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: DATA_DIR
+        value: /app/data
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: IP_HASH_SALT
+        generateValue: true
+      - key: OWNER_PASSWORD
+        sync: false
+      - key: TURNSTILE_SITE_KEY
+        sync: false
+      - key: TURNSTILE_SECRET_KEY
+        sync: false
+      - key: VITE_PUBLIC_POSTHOG_TOKEN
+        sync: false
+      - key: VITE_PUBLIC_POSTHOG_HOST
+        value: https://us.i.posthog.com
+      - key: POSTHOG_TOKEN
+        sync: false
+      - key: POSTHOG_HOST
+        value: https://us.i.posthog.com
+      - key: POSTHOG_PERSONAL_API_KEY
+        sync: false
+      - key: POSTHOG_PROJECT_ID
+        sync: false
+      - key: SLACK_WEBHOOK_URL
+        sync: false
