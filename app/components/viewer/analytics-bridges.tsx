@@ -25,6 +25,19 @@ export function AnalyticsBridges({ token }: { token: string }) {
   const posthog = usePostHog();
   const tokenHash = useRef<string | null>(null);
 
+  // Viewer-only: opt in to capture + session replay for this route.
+  useEffect(() => {
+    if (!posthog || !import.meta.env.VITE_PUBLIC_POSTHOG_TOKEN) return;
+
+    posthog.opt_in_capturing();
+    posthog.startSessionRecording();
+
+    return () => {
+      posthog.stopSessionRecording();
+      posthog.opt_out_capturing();
+    };
+  }, [posthog]);
+
   useEffect(() => {
     if (!import.meta.env.VITE_PUBLIC_POSTHOG_TOKEN) return;
     let cancelled = false;
