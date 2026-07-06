@@ -26,7 +26,13 @@ export function GateScreen({ gate, error }: { gate: GateData; error: GateActionE
   const submitting = navigation.state !== "idle";
   const [fingerprint, setFingerprint] = useState("");
   const [signals, setSignals] = useState("");
+  // Recipient-specific copy is client-only so link-preview crawlers never see it in SSR HTML.
+  const [hydrated, setHydrated] = useState(false);
   const turnstileRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   // Fingerprint + signals read navigator/screen, so they are client-only.
   useEffect(() => {
@@ -84,9 +90,13 @@ export function GateScreen({ gate, error }: { gate: GateData; error: GateActionE
         <h1 className="text-lg font-semibold text-white">
           You&apos;ve been invited to view a private document
         </h1>
-        <p className="mt-1 text-sm text-gray-400">
-          Prepared for <span className="font-medium text-gray-200">{gate.recipientLabel}</span>
-        </p>
+        {hydrated ? (
+          <p className="mt-1 text-sm text-gray-400">
+            Prepared for <span className="font-medium text-gray-200">{gate.recipientLabel}</span>
+          </p>
+        ) : (
+          <p className="mt-1 text-sm text-gray-400">Enter your credentials to continue.</p>
+        )}
 
         <Form method="post" className="mt-6 space-y-4">
           <input type="hidden" name="fingerprint" value={fingerprint} />
@@ -130,9 +140,11 @@ export function GateScreen({ gate, error }: { gate: GateData; error: GateActionE
           {error && <p className="text-sm text-red-400">{ERROR_COPY[error]}</p>}
         </Form>
 
-        <p className="mt-6 text-xs text-gray-500">
-          Views are logged and pages are watermarked for {gate.recipientLabel}.
-        </p>
+        {hydrated && (
+          <p className="mt-6 text-xs text-gray-500">
+            Views are logged and pages are watermarked for {gate.recipientLabel}.
+          </p>
+        )}
       </div>
     </main>
   );

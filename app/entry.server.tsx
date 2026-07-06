@@ -7,6 +7,7 @@ import { isbot } from "isbot";
 import type { RenderToPipeableStreamOptions } from "react-dom/server";
 import { renderToPipeableStream } from "react-dom/server";
 
+import "~/lib/boot.server";
 import { env } from "~/lib/env.server";
 
 export const streamTimeout = 5_000;
@@ -41,6 +42,7 @@ function applySecurityHeaders(headers: Headers): void {
   // Full CSP only in prod — the Vite dev server needs eval/ws.
   if (env.isProd) {
     headers.set("Content-Security-Policy", contentSecurityPolicy());
+    headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   }
 }
 
