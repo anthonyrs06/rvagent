@@ -1,0 +1,13 @@
+.DS_Store
+.env
+/node_modules/
+
+# React Router
+/.react-router/
+/build/
+
+# Runtime data: SQLite db + stored PDFs/page images
+/data/
+
+# Test artifacts
+/coverage/
