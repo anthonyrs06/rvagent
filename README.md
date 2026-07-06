@@ -64,6 +64,7 @@ npm run dev               # http://localhost:5173
 | `npm run typecheck` | React Router typegen + `tsc`       |
 | `npm test`          | Vitest unit tests                  |
 | `npm run db:generate` | Generate SQL migrations from schema |
+| `npm run smoke`     | End-to-end pipeline smoke test (uses a generated sample PDF) |
 
 Migrations run automatically at boot from `./drizzle`.
 

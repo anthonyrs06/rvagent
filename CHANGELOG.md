@@ -4,6 +4,23 @@ All notable changes to Resume Vault, newest first.
 
 ## Unreleased
 
+- Viewer UI: gated entry (password + invisible Turnstile + honest logging
+  disclosure), canvas-only page rendering with lazy tiles and zoom tiers,
+  protection pack (right-click/copy/print/shortcut blocking, blank print CSS,
+  blur-on-blur, devtools banner, PrintScreen response), click-to-reveal
+  overlays for redacted zones, and per-page/section dwell tracking.
+- Admin console: dashboard (stat cards, 30-day opens chart, recent sessions,
+  security feed, live refresh), resume upload with status, drag-to-draw zone
+  editor (redactions + named sections), link management (TTL presets,
+  password, max views, one-time, redacted, auto-lock, revoke/pause), and
+  per-link analytics with attention map, page drop-off bars, session
+  timelines, and engagement scores.
+- Hardening: exhausted one-time/max-view links show the unavailable screen
+  instead of a gate that can only fail.
+- Verified end-to-end over HTTP: upload → link → gate → watermarked tiles →
+  events → analytics → revoke (tiles 401 immediately); password gate,
+  redaction + logged reveal, burn-after-reading, and forwarding detection at
+  the third distinct device.
 - Server core: PDF rasterization (mupdf → 2 WebP tiers), link service
   (TTL/password/max-views/one-time/revoke), gated viewer sessions with signed
   cookies, per-session watermark compositing with an LRU tile cache,

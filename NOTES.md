@@ -2,6 +2,30 @@
 
 Working notes on *why* things are the way they are. Newest first.
 
+## UI + verification decisions (2026-07-06)
+
+- **Pixels only ever live in `<canvas>`**: there is no `<img>` for resume
+  pages in the viewer, so long-press-save, drag-out, and "open image in new
+  tab" have nothing to grab. The admin console *does* use `<img>` against the
+  admin-only clean endpoint — the owner is allowed to see their own resume.
+- **Reveal invalidation via version param**: after a click-to-reveal, the
+  client bumps `&v=N` on the tile URL. The server ignores it (auth is the
+  cookie; redaction state lives in the session row) — it exists purely to
+  bypass the browser's memory cache.
+- **The dwell ticker attributes to the viewport-center page** and to section
+  rects intersecting the middle 60% band — cheap, robust to zoom, and matches
+  how people actually read. Client dwell values are untrusted inputs summed
+  server-side; a hostile viewer could inflate their own engagement score,
+  which only misleads the owner about that viewer — acceptable.
+- **`window.confirm`-style flows avoided in the zone editor**: unsaved-changes
+  guard uses `useBlocker` + `beforeunload` so saving doesn't fight the guard.
+- **Exhausted links short-circuit at the loader** (`linkBudgetExhausted`)
+  so burn-after-reading URLs show "view limit reached" rather than a
+  password form that can only fail — found via curl e2e, fixed same commit.
+- **e2e verification is curl-first** (`scripts/smoke-e2e.ts` for the service
+  layer, curl for HTTP): headless-browser testing would trip our own bot
+  detection, which is a feature, not a bug.
+
 ## Server core decisions (2026-07-06)
 
 - **Tile auth is the cookie, not the URL**: `/api/viewer/page/:n` has no token

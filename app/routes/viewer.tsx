@@ -11,7 +11,7 @@ import {
 } from "~/lib/botguard.server";
 import { env } from "~/lib/env.server";
 import { logServerEvent } from "~/lib/events.server";
-import { validateLink, verifyLinkPassword } from "~/lib/links.server";
+import { linkBudgetExhausted, validateLink, verifyLinkPassword } from "~/lib/links.server";
 import { captureServer } from "~/lib/posthog.server";
 import { clientIp, rateLimit } from "~/lib/rate-limit.server";
 import { getResumePages } from "~/lib/resumes.server";
@@ -72,6 +72,12 @@ export async function loader({ request, params }: Route.LoaderArgs): Promise<Vie
         watermarkNotice: `Watermarked for ${link.recipientLabel}`,
       },
     };
+  }
+
+  // No existing session: if the view budget is spent, don't offer a gate
+  // that can only fail — show the exhausted screen.
+  if (linkBudgetExhausted(link)) {
+    return { mode: "unavailable", reason: "exhausted" };
   }
 
   return {

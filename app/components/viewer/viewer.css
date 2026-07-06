@@ -1,0 +1,24 @@
+/*
+ * Viewer-only styles that Tailwind utilities can't express:
+ * selection/callout hardening and the print kill-switch.
+ */
+.rv-noselect {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+@media print {
+  .rv-viewer-root {
+    display: none !important;
+  }
+
+  body::after {
+    content: "Printing is disabled for this document.";
+    display: block;
+    padding: 5rem 2rem;
+    text-align: center;
+    font-size: 1.125rem;
+    color: #111827;
+  }
+}

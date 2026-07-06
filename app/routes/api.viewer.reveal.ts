@@ -1,6 +1,7 @@
 import { db, schema } from "~/db/index.server";
 import { newId } from "~/lib/ids.server";
 import { notifyReveal } from "~/lib/notify.server";
+import { captureServer } from "~/lib/posthog.server";
 import { getResume } from "~/lib/resumes.server";
 import { rateLimit } from "~/lib/rate-limit.server";
 import { addRevealedZone, getAuthorizedSession } from "~/lib/sessions.server";
@@ -42,6 +43,10 @@ export async function action({ request }: Route.ActionArgs) {
     meta: { label: zone.label },
   });
   notifyReveal(auth.link.recipientLabel, zone.label);
+  captureServer(`viewer:${auth.session.id}`, "reveal_clicked", {
+    link_id: auth.link.id,
+    zone_label: zone.label,
+  });
 
   return Response.json({ ok: true, zoneId });
 }

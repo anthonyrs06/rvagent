@@ -44,6 +44,12 @@ export type LinkValidation =
   | { ok: true; link: LinkRow; resume: ResumeRow }
   | { ok: false; reason: "not_found" | "expired" | "revoked" | "paused" | "locked" | "exhausted" | "not_ready" };
 
+/** True when one-time/max-view budgets forbid creating another session. */
+export function linkBudgetExhausted(link: LinkRow): boolean {
+  if (link.oneTime && link.openCount >= 1) return true;
+  return link.maxViews !== null && link.openCount >= link.maxViews;
+}
+
 /**
  * Decide whether a share token may start (or continue) a viewing session.
  * `forNewSession` additionally enforces one-time + max-view budgets, which
@@ -65,11 +71,8 @@ export async function validateLink(token: string, opts: { forNewSession: boolean
   if (link.expiresAt && link.expiresAt.getTime() < Date.now()) return { ok: false, reason: "expired" };
   if (resume.status !== "ready") return { ok: false, reason: "not_ready" };
 
-  if (opts.forNewSession) {
-    if (link.oneTime && link.openCount >= 1) return { ok: false, reason: "exhausted" };
-    if (link.maxViews !== null && link.openCount >= link.maxViews) {
-      return { ok: false, reason: "exhausted" };
-    }
+  if (opts.forNewSession && linkBudgetExhausted(link)) {
+    return { ok: false, reason: "exhausted" };
   }
   return { ok: true, link, resume };
 }

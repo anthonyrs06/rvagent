@@ -8,7 +8,8 @@
     "start": "react-router-serve ./build/server/index.js",
     "typecheck": "react-router typegen && tsc",
     "test": "vitest run",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "smoke": "tsx scripts/make-sample-pdf.ts && tsx scripts/smoke-e2e.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",
