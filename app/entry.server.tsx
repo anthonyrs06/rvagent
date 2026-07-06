@@ -13,17 +13,24 @@ import { env } from "~/lib/env.server";
 export const streamTimeout = 5_000;
 
 function contentSecurityPolicy(): string {
-  const posthogHosts = [env.posthogHost, "https://us.i.posthog.com", "https://us.posthog.com"]
+  const posthogHosts = [
+    env.posthogHost,
+    "https://us.i.posthog.com",
+    "https://us.posthog.com",
+    "https://*.posthog.com",
+    "https://*.i.posthog.com",
+  ]
     .filter(Boolean)
     .join(" ");
   return [
     "default-src 'self'",
-    // RR hydration payload + Turnstile need inline/external scripts.
-    "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+    // RR hydration + Turnstile inline scripts; PostHog session replay loads recorder.js.
+    `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com ${posthogHosts}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' blob: data:",
     `connect-src 'self' ${posthogHosts}`,
+    "worker-src 'self' blob:",
     "frame-src https://challenges.cloudflare.com",
     "frame-ancestors 'none'",
     "object-src 'none'",

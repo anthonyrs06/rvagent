@@ -5,6 +5,7 @@
  * attached to any event (tokens are secrets).
  */
 import { usePostHog } from "@posthog/react";
+import posthog from "posthog-js";
 import { useEffect, useRef } from "react";
 
 import { hashIdentifier } from "~/lib/posthog-privacy";
@@ -27,10 +28,11 @@ export function AnalyticsBridges({ token }: { token: string }) {
 
   // Viewer-only: opt in to capture + session replay for this route.
   useEffect(() => {
-    if (!posthog || !import.meta.env.VITE_PUBLIC_POSTHOG_TOKEN) return;
+    if (!import.meta.env.VITE_PUBLIC_POSTHOG_TOKEN) return;
 
     posthog.opt_in_capturing();
-    posthog.startSessionRecording();
+    // Override sampling/linked-flag gates; recorder needs CSP script-src for *.posthog.com.
+    posthog.startSessionRecording({ sampling: true, linked_flag: true });
 
     return () => {
       posthog.stopSessionRecording();
