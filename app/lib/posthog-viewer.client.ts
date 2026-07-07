@@ -12,6 +12,8 @@ let active = false;
 export function enableViewerPostHogRecording(): void {
   if (active) return;
   active = true;
+  // Expose the instance for observability/e2e (the project token is public).
+  (window as unknown as { posthog?: typeof posthog }).posthog = posthog;
   posthog.opt_in_capturing();
   // `true` bypasses project sampling / linked-flag gates for this session.
   posthog.startSessionRecording(true);

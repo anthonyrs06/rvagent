@@ -16,14 +16,13 @@ DOMAINS = {
         "https://anthonysadarangani.com",
         "http://localhost:5173",
     ],
-    # Must include the scheme — bare hostnames never match and silently
-    # disable replay for every visitor (decide returns sessionRecording: false).
-    "recording_domains": [
-        "https://resume-vault-jp6b.onrender.com",
-        "https://*.onrender.com",
-        "https://anthonysadarangani.com",
-        "http://localhost:5173",
-    ],
+    # Intentionally EMPTY. posthog-js reads session-recording authorization from
+    # the CDN-cached remote config (/array/<token>/config.js), which cannot see
+    # the request Origin — so any non-empty recording_domains makes config.js
+    # return `sessionRecording: false` and replay never starts, regardless of
+    # whether the domain is correct. Empty = allow all origins. Acceptable here:
+    # the viewer token is unguessable and the project is single-tenant.
+    "recording_domains": [],
 }
 
 
