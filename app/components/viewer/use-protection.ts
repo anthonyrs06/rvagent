@@ -50,11 +50,17 @@ export function useProtection(): ProtectionState {
 
   useEffect(() => {
     const triggerScreenshotGuard = () => {
+      // Synchronous DOM hide first — a React re-render can lose the race
+      // against the OS screenshot capture, a class toggle cannot.
+      document.documentElement.classList.add("rv-screenshot-guard");
       emitOnce("screenshot_key");
       setScreenshotGuard(true);
       clearScreenshotClipboard();
       if (guardTimer.current) clearTimeout(guardTimer.current);
-      guardTimer.current = setTimeout(() => setScreenshotGuard(false), SCREENSHOT_GUARD_MS);
+      guardTimer.current = setTimeout(() => {
+        document.documentElement.classList.remove("rv-screenshot-guard");
+        setScreenshotGuard(false);
+      }, SCREENSHOT_GUARD_MS);
     };
 
     const onContextMenu = (event: Event) => {
@@ -146,6 +152,7 @@ export function useProtection(): ProtectionState {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       if (devtoolsTimer) clearInterval(devtoolsTimer);
       if (guardTimer.current) clearTimeout(guardTimer.current);
+      document.documentElement.classList.remove("rv-screenshot-guard");
     };
   }, []);
 

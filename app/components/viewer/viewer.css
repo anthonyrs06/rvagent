@@ -13,6 +13,15 @@
   user-select: none;
 }
 
+/*
+ * Instant screenshot kill-switch. Applied synchronously to <html> from the
+ * keydown handler (use-protection.ts) — no React render round-trip, so the
+ * pixels vanish on the very next paint. The fixed banner stays visible.
+ */
+.rv-screenshot-guard .rv-viewer-root > *:not(.rv-guard-banner) {
+  visibility: hidden !important;
+}
+
 @media print {
   .rv-viewer-root {
     display: none !important;

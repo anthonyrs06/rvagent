@@ -36,13 +36,28 @@ describe("matchesScreenshotModifierPrep", () => {
     );
   });
 
+  it("detects Cmd+Shift when Meta is pressed second (Shift held first)", () => {
+    expect(matchesScreenshotModifierPrep({ key: "Meta", metaKey: true, shiftKey: true })).toBe(
+      true,
+    );
+  });
+
   it("detects Win+Shift when Shift is pressed second", () => {
     expect(matchesScreenshotModifierPrep({ key: "Shift", osKey: true, shiftKey: true })).toBe(true);
+  });
+
+  it("detects Win+Shift when the OS key is pressed second (Shift held first)", () => {
+    expect(matchesScreenshotModifierPrep({ key: "OS", osKey: true, shiftKey: true })).toBe(true);
+    expect(matchesScreenshotModifierPrep({ key: "Meta", osKey: true, shiftKey: true })).toBe(true);
   });
 
   it("ignores Shift alone or with unrelated modifiers", () => {
     expect(matchesScreenshotModifierPrep({ key: "Shift" })).toBe(false);
     expect(matchesScreenshotModifierPrep({ key: "Shift", metaKey: true })).toBe(false);
     expect(matchesScreenshotModifierPrep({ key: "a", metaKey: true, shiftKey: true })).toBe(false);
+  });
+
+  it("ignores Meta alone without Shift", () => {
+    expect(matchesScreenshotModifierPrep({ key: "Meta", metaKey: true })).toBe(false);
   });
 });

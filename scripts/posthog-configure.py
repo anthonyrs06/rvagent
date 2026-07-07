@@ -16,11 +16,13 @@ DOMAINS = {
         "https://anthonysadarangani.com",
         "http://localhost:5173",
     ],
+    # Must include the scheme — bare hostnames never match and silently
+    # disable replay for every visitor (decide returns sessionRecording: false).
     "recording_domains": [
-        "resume-vault-jp6b.onrender.com",
-        "onrender.com",
-        "anthonysadarangani.com",
-        "localhost",
+        "https://resume-vault-jp6b.onrender.com",
+        "https://*.onrender.com",
+        "https://anthonysadarangani.com",
+        "http://localhost:5173",
     ],
 }
 

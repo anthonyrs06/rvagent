@@ -141,7 +141,17 @@ export function CanvasPage({
         height={meta.loHeight}
         className="block h-auto w-full"
       />
-      {!hasDrawn && <div className="absolute inset-0 animate-pulse bg-gray-800/60" />}
+      {!hasDrawn && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/90">
+          <div className="flex flex-col items-center gap-3" role="status" aria-live="polite">
+            <div
+              className="size-10 animate-spin rounded-full border-2 border-gray-600 border-t-gray-200"
+              aria-hidden="true"
+            />
+            <p className="text-sm font-medium text-gray-400">Loading page…</p>
+          </div>
+        </div>
+      )}
       {revealZones.map((zone) => (
         <RevealOverlay key={zone.id} zone={zone} onReveal={onReveal} />
       ))}
