@@ -20,7 +20,7 @@ export function ViewerScreen({ viewer }: { viewer: ViewerData }) {
   const [pageVersions, setPageVersions] = useState<Readonly<Record<number, number>>>({});
   const pageEls = useRef(new Map<number, HTMLElement>());
 
-  const { inactive, devtoolsOpen } = useProtection();
+  const { inactive, devtoolsOpen, screenshotGuard } = useProtection();
   useViewerTracking(viewer, pageEls);
 
   const registerPageEl = useCallback((pageIndex: number, el: HTMLElement | null) => {
@@ -109,7 +109,7 @@ export function ViewerScreen({ viewer }: { viewer: ViewerData }) {
     return byPage;
   }, [viewer.redacted, viewer.zones, revealedZoneIds]);
 
-  const blurContent = inactive || devtoolsOpen;
+  const hideContent = inactive || devtoolsOpen || screenshotGuard;
   const useHi = shouldUseHiTier(zoom);
 
   return (
@@ -119,6 +119,12 @@ export function ViewerScreen({ viewer }: { viewer: ViewerData }) {
       {devtoolsOpen && (
         <div className="fixed inset-x-0 top-0 z-50 bg-amber-500 px-4 py-2 text-center text-sm font-medium text-gray-950">
           Developer tools detected — this session is logged.
+        </div>
+      )}
+
+      {screenshotGuard && (
+        <div className="fixed inset-x-0 top-0 z-50 bg-red-600 px-4 py-2 text-center text-sm font-medium text-white">
+          Screenshot blocked — this session is logged.
         </div>
       )}
 
@@ -136,8 +142,10 @@ export function ViewerScreen({ viewer }: { viewer: ViewerData }) {
       <div aria-hidden="true" className="relative">
         <div
           className={
-            blurContent
-              ? "overflow-x-auto blur-md brightness-50 transition"
+            hideContent
+              ? screenshotGuard
+                ? "overflow-x-auto opacity-0 blur-2xl brightness-0 transition-none"
+                : "overflow-x-auto blur-md brightness-50 transition"
               : "overflow-x-auto transition"
           }
         >
@@ -159,7 +167,7 @@ export function ViewerScreen({ viewer }: { viewer: ViewerData }) {
           </div>
         </div>
 
-        {inactive && (
+        {inactive && !screenshotGuard && (
           <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center px-6">
             <p className="rounded-lg border border-gray-800 bg-gray-950/90 px-6 py-4 text-center text-sm font-medium text-gray-200 shadow-2xl">
               Content hidden while the window is inactive

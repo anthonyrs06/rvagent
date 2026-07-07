@@ -8,6 +8,11 @@
   -webkit-touch-callout: none;
 }
 
+.rv-viewer-root canvas {
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
 @media print {
   .rv-viewer-root {
     display: none !important;

@@ -5,13 +5,16 @@
  * security event type is emitted at most once per session while the
  * prevention itself keeps running.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { isScreenshotShortcut } from "~/lib/screenshot-shortcuts";
 import type { SecurityEventType } from "~/lib/types";
 import { emitViewerEvent } from "~/lib/viewer-events.client";
 
 const DEVTOOLS_POLL_MS = 2_000;
 const DEVTOOLS_GAP_PX = 240;
+/** How long content stays hidden after a detected screenshot shortcut. */
+const SCREENSHOT_GUARD_MS = 8_000;
 
 // Session-scoped (page-load-scoped) dedupe, matching "once per session".
 const emittedTypes = new Set<SecurityEventType>();
@@ -22,18 +25,38 @@ function emitOnce(type: SecurityEventType): void {
   emitViewerEvent({ type });
 }
 
+function clearScreenshotClipboard(): void {
+  try {
+    void navigator.clipboard?.writeText("").catch(() => {});
+  } catch {
+    // Clipboard API unavailable — fine.
+  }
+}
+
 export interface ProtectionState {
   /** Window blurred or tab hidden — callers blur the content. */
   inactive: boolean;
   /** Devtools heuristic currently firing — callers show the banner + blur. */
   devtoolsOpen: boolean;
+  /** Screenshot shortcut detected — hide pixels immediately. */
+  screenshotGuard: boolean;
 }
 
 export function useProtection(): ProtectionState {
   const [inactive, setInactive] = useState(false);
   const [devtoolsOpen, setDevtoolsOpen] = useState(false);
+  const [screenshotGuard, setScreenshotGuard] = useState(false);
+  const guardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    const triggerScreenshotGuard = () => {
+      emitOnce("screenshot_key");
+      setScreenshotGuard(true);
+      clearScreenshotClipboard();
+      if (guardTimer.current) clearTimeout(guardTimer.current);
+      guardTimer.current = setTimeout(() => setScreenshotGuard(false), SCREENSHOT_GUARD_MS);
+    };
+
     const onContextMenu = (event: Event) => {
       event.preventDefault();
       emitOnce("contextmenu");
@@ -49,6 +72,12 @@ export function useProtection(): ProtectionState {
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
+      if (isScreenshotShortcut(event)) {
+        event.preventDefault();
+        triggerScreenshotGuard();
+        return;
+      }
+
       if (!(event.ctrlKey || event.metaKey)) return;
       const key = event.key.toLowerCase();
       if (key !== "s" && key !== "p" && key !== "c" && key !== "a") return;
@@ -59,13 +88,7 @@ export function useProtection(): ProtectionState {
 
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.key !== "PrintScreen") return;
-      try {
-        // Best effort: some browsers put the capture on the clipboard.
-        void navigator.clipboard?.writeText("").catch(() => {});
-      } catch {
-        // Clipboard API unavailable (permissions, insecure context) — fine.
-      }
-      emitOnce("screenshot_key");
+      triggerScreenshotGuard();
     };
 
     const onBeforePrint = () => emitOnce("print_attempt");
@@ -83,8 +106,8 @@ export function useProtection(): ProtectionState {
     document.addEventListener("cut", onCopyOrCut);
     document.addEventListener("selectstart", onSelectOrDrag);
     document.addEventListener("dragstart", onSelectOrDrag);
-    document.addEventListener("keydown", onKeyDown);
-    document.addEventListener("keyup", onKeyUp);
+    document.addEventListener("keydown", onKeyDown, true);
+    document.addEventListener("keyup", onKeyUp, true);
     window.addEventListener("beforeprint", onBeforePrint);
     printMedia.addEventListener("change", onPrintMediaChange);
     window.addEventListener("blur", onBlur);
@@ -114,16 +137,17 @@ export function useProtection(): ProtectionState {
       document.removeEventListener("cut", onCopyOrCut);
       document.removeEventListener("selectstart", onSelectOrDrag);
       document.removeEventListener("dragstart", onSelectOrDrag);
-      document.removeEventListener("keydown", onKeyDown);
-      document.removeEventListener("keyup", onKeyUp);
+      document.removeEventListener("keydown", onKeyDown, true);
+      document.removeEventListener("keyup", onKeyUp, true);
       window.removeEventListener("beforeprint", onBeforePrint);
       printMedia.removeEventListener("change", onPrintMediaChange);
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       if (devtoolsTimer) clearInterval(devtoolsTimer);
+      if (guardTimer.current) clearTimeout(guardTimer.current);
     };
   }, []);
 
-  return { inactive, devtoolsOpen };
+  return { inactive, devtoolsOpen, screenshotGuard };
 }
