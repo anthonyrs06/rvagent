@@ -1,8 +1,10 @@
 /**
  * Viewer-only PostHog session replay bootstrap.
  * Vite bundles posthog-js without the lazy recorder — import it explicitly.
+ * Use `posthog-recorder` (not `recorder`): only posthog-recorder registers
+ * `__PosthogExtensions__.initSessionRecording`, which session replay requires.
  */
-import "posthog-js/dist/recorder";
+import "posthog-js/dist/posthog-recorder";
 import posthog from "posthog-js";
 
 let active = false;
