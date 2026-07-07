@@ -203,7 +203,7 @@ async function main() {
   record("guard Cmd→Shift", banner1 && hidden1, `banner=${banner1} hiddenClass=${hidden1}`);
 
   // Wait out the 8s guard, then test reversed order.
-  await page.waitForTimeout(9000);
+  await page.waitForTimeout(6000);
 
   // ---- 7. Screenshot guard: Shift then Cmd (reversed order) ----
   await page.keyboard.down("Shift");

@@ -13,8 +13,8 @@ import { emitViewerEvent } from "~/lib/viewer-events.client";
 
 const DEVTOOLS_POLL_MS = 2_000;
 const DEVTOOLS_GAP_PX = 240;
-/** How long content stays hidden after a detected screenshot shortcut. */
-const SCREENSHOT_GUARD_MS = 8_000;
+/** Seconds content stays hidden after a detected screenshot shortcut. */
+const SCREENSHOT_GUARD_SECONDS = 5;
 
 // Session-scoped (page-load-scoped) dedupe, matching "once per session".
 const emittedTypes = new Set<SecurityEventType>();
@@ -40,27 +40,47 @@ export interface ProtectionState {
   devtoolsOpen: boolean;
   /** Screenshot shortcut detected — hide pixels immediately. */
   screenshotGuard: boolean;
+  /** Seconds until viewing resumes; only meaningful while screenshotGuard is true. */
+  screenshotGuardCountdown: number;
 }
 
 export function useProtection(): ProtectionState {
   const [inactive, setInactive] = useState(false);
   const [devtoolsOpen, setDevtoolsOpen] = useState(false);
   const [screenshotGuard, setScreenshotGuard] = useState(false);
-  const guardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [screenshotGuardCountdown, setScreenshotGuardCountdown] = useState(0);
+  const guardInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    const endScreenshotGuard = () => {
+      document.documentElement.classList.remove("rv-screenshot-guard");
+      setScreenshotGuard(false);
+      setScreenshotGuardCountdown(0);
+      if (guardInterval.current) {
+        clearInterval(guardInterval.current);
+        guardInterval.current = null;
+      }
+    };
+
     const triggerScreenshotGuard = () => {
       // Synchronous DOM hide first — a React re-render can lose the race
       // against the OS screenshot capture, a class toggle cannot.
       document.documentElement.classList.add("rv-screenshot-guard");
       emitOnce("screenshot_key");
       setScreenshotGuard(true);
+      setScreenshotGuardCountdown(SCREENSHOT_GUARD_SECONDS);
       clearScreenshotClipboard();
-      if (guardTimer.current) clearTimeout(guardTimer.current);
-      guardTimer.current = setTimeout(() => {
-        document.documentElement.classList.remove("rv-screenshot-guard");
-        setScreenshotGuard(false);
-      }, SCREENSHOT_GUARD_MS);
+
+      if (guardInterval.current) clearInterval(guardInterval.current);
+      let secondsLeft = SCREENSHOT_GUARD_SECONDS;
+      guardInterval.current = setInterval(() => {
+        secondsLeft -= 1;
+        if (secondsLeft <= 0) {
+          endScreenshotGuard();
+        } else {
+          setScreenshotGuardCountdown(secondsLeft);
+        }
+      }, 1000);
     };
 
     const onContextMenu = (event: Event) => {
@@ -151,10 +171,10 @@ export function useProtection(): ProtectionState {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibilityChange);
       if (devtoolsTimer) clearInterval(devtoolsTimer);
-      if (guardTimer.current) clearTimeout(guardTimer.current);
+      if (guardInterval.current) clearInterval(guardInterval.current);
       document.documentElement.classList.remove("rv-screenshot-guard");
     };
   }, []);
 
-  return { inactive, devtoolsOpen, screenshotGuard };
+  return { inactive, devtoolsOpen, screenshotGuard, screenshotGuardCountdown };
 }

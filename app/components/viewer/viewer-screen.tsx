@@ -20,7 +20,7 @@ export function ViewerScreen({ viewer }: { viewer: ViewerData }) {
   const [pageVersions, setPageVersions] = useState<Readonly<Record<number, number>>>({});
   const pageEls = useRef(new Map<number, HTMLElement>());
 
-  const { inactive, devtoolsOpen, screenshotGuard } = useProtection();
+  const { inactive, devtoolsOpen, screenshotGuard, screenshotGuardCountdown } = useProtection();
   useViewerTracking(viewer, pageEls);
 
   const registerPageEl = useCallback((pageIndex: number, el: HTMLElement | null) => {
@@ -129,8 +129,17 @@ export function ViewerScreen({ viewer }: { viewer: ViewerData }) {
       )}
 
       {screenshotGuard && (
-        <div className="rv-guard-banner fixed inset-x-0 top-0 z-50 bg-red-600 px-4 py-2 text-center text-sm font-medium text-white">
+        <div
+          className="rv-guard-banner fixed inset-x-0 top-0 z-50 bg-red-600 px-4 py-2 text-center text-sm font-medium text-white"
+          role="status"
+          aria-live="polite"
+        >
           Screenshot attempt detected — this session is logged.
+          {screenshotGuardCountdown > 0 && (
+            <span className="mt-0.5 block text-xs font-normal text-red-100">
+              Returning to document in {screenshotGuardCountdown}…
+            </span>
+          )}
         </div>
       )}
 
