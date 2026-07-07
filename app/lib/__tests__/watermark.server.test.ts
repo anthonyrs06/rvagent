@@ -17,7 +17,7 @@ async function luminanceVariance(png: Buffer): Promise<number> {
 
 describe("watermarkSvg", () => {
   it("renders readable text (non-flat luminance) when rasterized", async () => {
-    const label = "Shared with Acme — Jane Recruiter · 2026-07-06 · s_abc123";
+    const label = "Shared with Acme - Jane Recruiter - 2026-07-06 - s_abc123";
     const svg = watermarkSvg(800, 600, label);
     const png = await sharp(svg).png().toBuffer();
 
