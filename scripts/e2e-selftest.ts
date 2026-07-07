@@ -80,7 +80,11 @@ async function main() {
   console.log(`share link created: ${BASE}/r/${token.slice(0, 6)}… (link ${linkId ?? "id unknown"})`);
 
   // ---- 2. Browser session (stealth: webdriver=false + real UA) ----
+  // HEADED=1 runs a real Chrome window — the session recorder's rrweb loop and
+  // flush timers behave like a real visitor (headless stalls the send queue).
+  const headed = process.env.HEADED === "1";
   const browser = await chromium.launch({
+    headless: !headed,
     args: ["--disable-blink-features=AutomationControlled"],
   });
   const context = await browser.newContext({
@@ -88,30 +92,43 @@ async function main() {
     viewport: { width: 1280, height: 900 },
     locale: "en-US",
   });
-  await context.addInitScript(() => {
-    Object.defineProperty(Navigator.prototype, "webdriver", {
-      get: () => false,
-      configurable: true,
-    });
-  });
+  // Raw string (not a function) so tsx/esbuild never wraps nested arrows with
+  // its `__name` helper, which is undefined in the browser and would throw.
+  await context.addInitScript(`
+    Object.defineProperty(Navigator.prototype, "webdriver", { get: function () { return false; }, configurable: true });
+    // Headless Chrome reports the tab as permanently "hidden", so PostHog
+    // buffers snapshots and never flushes to /s/. Force a foreground tab.
+    Object.defineProperty(document, "visibilityState", { get: function () { return "visible"; }, configurable: true });
+    Object.defineProperty(document, "hidden", { get: function () { return false; }, configurable: true });
+    document.hasFocus = function () { return true; };
+  `);
 
   const page = await context.newPage();
 
   const snapshotPosts: string[] = [];
   const posthogReqs: string[] = [];
-  page.on("request", (req) => {
+  // Listen at the context level: replay snapshot POSTs can originate from a
+  // Web Worker (off-thread compression), which page-level listeners miss.
+  context.on("request", (req) => {
     const url = req.url();
     if (/posthog\.com/.test(url)) posthogReqs.push(`${req.method()} ${url.split("?")[0]}`);
     if (req.method() === "POST" && /posthog\.com\/s\//.test(url)) snapshotPosts.push(url);
   });
   page.on("console", (msg) => {
     const t = msg.text();
-    if (/posthog|recorder|replay|snapshot|csp|content security/i.test(t)) {
-      console.log(`  [browser:${msg.type()}] ${t.slice(0, 200)}`);
+    if (/posthog|recorder|replay|snapshot|csp|content security|rrweb/i.test(t)) {
+      console.log(`  [browser:${msg.type()}] ${t.slice(0, 240)}`);
     }
   });
+  page.on("pageerror", (err) =>
+    console.log(`  [pageerror] ${String(err.stack ?? err).slice(0, 600)}`),
+  );
+  page.on("requestfailed", (req) => {
+    if (/posthog/.test(req.url()))
+      console.log(`  [reqfailed] ${req.url().split("?")[0]} ${req.failure()?.errorText ?? ""}`);
+  });
   page.on("response", (res) => {
-    if (/posthog\.com\/(s|e|decide|array|static)/.test(res.url()) && res.status() >= 400) {
+    if (/posthog\.com\/(s|e|i|decide|flags|array|static)/.test(res.url()) && res.status() >= 400) {
       console.log(`  [posthog ${res.status()}] ${res.url().split("?")[0]}`);
     }
   });
@@ -148,9 +165,6 @@ async function main() {
   record("loading spinner", spinnerSeen, spinnerSeen ? "spinner visible while tiles load" : "tiles loaded before spinner could be captured");
 
   // ---- 4. Resume + watermark loaded ----
-  await page.screenshot({ path: `${OUT}/02b-post-submit.png` });
-  const bodySnippet = (await page.locator("body").innerText().catch(() => "")).slice(0, 400);
-  console.log(`post-submit body: ${bodySnippet.replace(/\n+/g, " | ")}`);
   await page.waitForSelector("canvas", { timeout: 20000 });
   await page.waitForFunction(
     () => {
@@ -159,7 +173,11 @@ async function main() {
     },
     { timeout: 20000 },
   );
-  await page.waitForTimeout(2500);
+  // Wait for every page spinner to clear so the demo shows real pixels.
+  await page
+    .waitForFunction(() => !document.body.innerText.includes("Loading page"), { timeout: 20000 })
+    .catch(() => {});
+  await page.waitForTimeout(1500);
   await page.screenshot({ path: `${OUT}/03-loaded.png` });
   record("resume loaded", true, "canvas drawn with watermarked tiles");
 
@@ -200,10 +218,100 @@ async function main() {
   await page.keyboard.up("Shift");
   record("guard Shift→Cmd", banner2 && hidden2, `banner=${banner2} hiddenClass=${hidden2}`);
 
-  // ---- 8. Dwell so the recorder flushes, then check /s/ traffic ----
-  await page.waitForTimeout(12000);
-  await page.mouse.wheel(0, 400);
-  await page.waitForTimeout(8000);
+  // ---- 8. Inspect recorder internals, then dwell so it flushes ----
+  const recProbe = await page.evaluate(`(function () {
+    var p = window.posthog;
+    if (!p) return { error: "no posthog" };
+    var sr = p.sessionRecording || {};
+    var ext = window.__PosthogExtensions__ || {};
+    var out = {
+      srStatus: sr.status || sr._status || "n/a",
+      srStarted: sr.started != null ? sr.started : "n/a",
+      srReceivedDecide: sr.receivedDecide != null ? sr.receivedDecide : "n/a",
+      srKeys: Object.keys(sr).slice(0, 25),
+      extKeys: Object.keys(ext),
+    };
+    try { p.startSessionRecording(); out.startCall = "ok"; }
+    catch (e) { out.startCall = String(e).slice(0, 80); }
+    return out;
+  })()`);
+  console.log("recording probe:", JSON.stringify(recProbe));
+
+  // Headless Chromium keeps posthog-js's batched queue from flushing. Turn off
+  // request batching for this QA session so snapshots/events send immediately.
+  const cfgResult = await page.evaluate(`(function () {
+    var p = window.posthog;
+    if (!p || !p.set_config) return "no set_config";
+    p.set_config({ request_batching: false });
+    return "batching off";
+  })()`);
+  console.log("config override:", cfgResult);
+
+  // Isolate whether the client sends ANY ingestion traffic (events or snapshots).
+  const ingestFlush = context
+    .waitForEvent("request", {
+      predicate: (req) => req.method() === "POST" && /posthog\.com\/(i|e|s)\b/.test(req.url()),
+      timeout: 12000,
+    })
+    .then((r) => r.url().split("?")[0])
+    .catch(() => "none");
+  const captureProbe = await page.evaluate(`(function () {
+    var p = window.posthog;
+    if (!p) return { error: "no posthog" };
+    var out = {};
+    try { p.capture("e2e_capture_probe", { t: Date.now() }); out.captured = true; } catch (e) { out.captureErr = String(e).slice(0,120); }
+    try { (p.flush || function(){})(); out.flushed = true; } catch (e) { out.flushErr = String(e).slice(0,120); }
+    out.optedIn = p.has_opted_in_capturing ? p.has_opted_in_capturing() : "n/a";
+    out.configOptOut = p.config ? p.config.opt_out_capturing_by_default : "n/a";
+    return out;
+  })()`);
+  console.log("capture probe:", JSON.stringify(captureProbe));
+  console.log("ingest POST after probe:", await ingestFlush);
+
+  // Can the page even reach the ingestion host (CSP / network), and what does
+  // posthog's config actually look like?
+  const netProbe = await page.evaluate(`(async function () {
+    var p = window.posthog;
+    var cfg = p && p.config ? p.config : {};
+    var out = {
+      api_host: cfg.api_host,
+      ui_host: cfg.ui_host,
+      disable_session_recording: cfg.disable_session_recording,
+      opt_out_capturing_by_default: cfg.opt_out_capturing_by_default,
+      _dnt: cfg.respect_dnt,
+      advanced_disable_decide: cfg.advanced_disable_decide,
+      advanced_disable_flags: cfg.advanced_disable_flags,
+      __loaded_recorder: !!(window.__PosthogExtensions__ && window.__PosthogExtensions__.rrweb),
+    };
+    try {
+      var r = await fetch((cfg.api_host || "https://us.i.posthog.com") + "/i/v0/e/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ api_key: "` + `phc_pfVUuRURxva2oajXgyRMMVDGMxXHurErwetbiwBPjAFT` + `", event: "e2e_raw_fetch", properties: { distinct_id: "e2e-raw" } }),
+      });
+      out.rawFetchStatus = r.status;
+    } catch (e) {
+      out.rawFetchErr = String(e).slice(0, 160);
+    }
+    return out;
+  })()`);
+  console.log("net probe:", JSON.stringify(netProbe));
+
+  // Wait for the recorder's buffer to flush to /s/ while scrolling for activity.
+  const snapshotFlush = context
+    .waitForEvent("request", {
+      predicate: (req) => req.method() === "POST" && /posthog\.com\/s\//.test(req.url()),
+      timeout: 20000,
+    })
+    .then(() => true)
+    .catch(() => false);
+  for (let i = 0; i < 5; i++) {
+    await page.mouse.move(200 + i * 40, 300 + i * 30);
+    await page.mouse.wheel(0, 250);
+    await page.waitForTimeout(1500);
+  }
+  await snapshotFlush;
+  await page.waitForTimeout(3000);
 
   const phState = await page.evaluate(() => {
     const w = window as unknown as {
@@ -260,9 +368,27 @@ async function main() {
     console.log("test link revoked");
   }
 
-  writeFileSync(`${OUT}/results.json`, JSON.stringify({ checks, sessionId, snapshotPosts: snapshotPosts.length, token: token.slice(0, 6) }, null, 2));
+  writeFileSync(
+    `${OUT}/results.json`,
+    JSON.stringify(
+      {
+        checks,
+        sessionId: phState.sessionId,
+        snapshotPosts: snapshotPosts.length,
+        replayUrl: phState.sessionId
+          ? `https://us.posthog.com/project/500759/replay/${phState.sessionId}`
+          : null,
+        token: token.slice(0, 6),
+      },
+      null,
+      2,
+    ),
+  );
   console.log("\n==== RESULTS ====");
   for (const c of checks) console.log(`${c.pass ? "PASS" : "FAIL"}  ${c.name}: ${c.detail}`);
+  if (phState.sessionId) {
+    console.log(`\nReplay: https://us.posthog.com/project/500759/replay/${phState.sessionId}`);
+  }
   const failed = checks.filter((c) => !c.pass && c.name !== "loading spinner");
   process.exit(failed.length ? 1 : 0);
 }
