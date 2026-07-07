@@ -12,9 +12,8 @@ const host = import.meta.env.VITE_PUBLIC_POSTHOG_HOST;
 if (token && host) {
   posthog.init(token, {
     api_host: host,
-    // Viewer routes opt in via AnalyticsBridges; admin stays dark.
+    // Viewer routes opt in via enableViewerPostHogRecording(); admin stays dark.
     opt_out_capturing_by_default: true,
-    disable_session_recording: true,
     capture_pageview: false,
     capture_pageleave: false,
     enable_heatmaps: true,

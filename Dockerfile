@@ -19,6 +19,8 @@ WORKDIR /app
 RUN npm run build
 
 FROM node:24-alpine
+RUN apk add --no-cache fontconfig ttf-dejavu \
+  && fc-cache -f
 ENV HOST=0.0.0.0
 ENV NODE_ENV=production
 ENV DATA_DIR=/app/data

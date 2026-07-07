@@ -17,6 +17,7 @@ function contentSecurityPolicy(): string {
     env.posthogHost,
     "https://us.i.posthog.com",
     "https://us.posthog.com",
+    "https://us-assets.i.posthog.com",
     "https://*.posthog.com",
     "https://*.i.posthog.com",
   ]

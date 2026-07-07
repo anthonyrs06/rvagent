@@ -7,7 +7,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 
-import { isScreenshotShortcut } from "~/lib/screenshot-shortcuts";
+import { isScreenshotModifierPrep, isScreenshotShortcut } from "~/lib/screenshot-shortcuts";
 import type { SecurityEventType } from "~/lib/types";
 import { emitViewerEvent } from "~/lib/viewer-events.client";
 
@@ -72,7 +72,7 @@ export function useProtection(): ProtectionState {
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (isScreenshotShortcut(event)) {
+      if (isScreenshotModifierPrep(event) || isScreenshotShortcut(event)) {
         event.preventDefault();
         triggerScreenshotGuard();
         return;

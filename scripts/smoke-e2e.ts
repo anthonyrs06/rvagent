@@ -68,8 +68,18 @@ const tile0 = await composePageForSession(freshResume!, link, session, 0, "lo");
 assert(tile0 && tile0.data.length > 1000, "page 0 composited");
 const tile1 = await composePageForSession(freshResume!, link, session, 1, "hi");
 assert(tile1 && tile1.data.length > 1000, "page 1 hi composited");
+
+const { getResumePage } = await import("../app/lib/resumes.server");
+const { storage } = await import("../app/lib/storage.server");
+const page0 = await getResumePage(freshResume!.id, 0);
+const baseTile = page0 ? await storage.get(page0.loKey) : null;
+assert(baseTile && !tile0!.data.equals(baseTile), "watermark overlay applied (tile differs from base)");
+
 writeFileSync("data/smoke-tile.webp", tile0!.data);
-console.log(`   wrote data/smoke-tile.webp (${(tile0!.data.length / 1024).toFixed(0)}KB, ${tile0!.width}x${tile0!.height})`);
+console.log(
+  `   wrote data/smoke-tile.webp (${(tile0!.data.length / 1024).toFixed(0)}KB, ${tile0!.width}x${tile0!.height})`,
+);
+console.log("   eyeball data/smoke-tile.webp — tiled recipient label text should be readable");
 
 console.log("7. ingest events (page views + dwell)");
 await ingestClientEvents(session, link, [

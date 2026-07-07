@@ -20,8 +20,10 @@ function escapeXml(s: string): string {
  * Tiled diagonal watermark burned into the pixels server-side. Visible enough
  * to deter, light enough to read through. Includes recipient, date, and a
  * short session id so a leaked screenshot is traceable to one viewing session.
+ *
+ * Uses DejaVu Sans — installed in the production Docker image (Alpine has no Helvetica).
  */
-function watermarkSvg(width: number, height: number, label: string): Buffer {
+export function watermarkSvg(width: number, height: number, label: string): Buffer {
   const text = escapeXml(label);
   const fontSize = Math.max(14, Math.round(width / 55));
   const tileW = Math.max(360, text.length * fontSize * 0.62);
@@ -29,7 +31,7 @@ function watermarkSvg(width: number, height: number, label: string): Buffer {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
   <defs>
     <pattern id="wm" width="${tileW}" height="${tileH}" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)">
-      <text x="0" y="${tileH / 2}" font-family="Helvetica, Arial, sans-serif" font-size="${fontSize}"
+      <text x="0" y="${tileH / 2}" font-family="DejaVu Sans, sans-serif" font-size="${fontSize}"
             fill="#1e293b" fill-opacity="0.10">${text}</text>
     </pattern>
   </defs>
@@ -48,7 +50,7 @@ function redactionSvg(width: number, height: number, zones: Zone[], hidden: Set<
       const w = Math.round(z.w * width);
       const h = Math.round(z.h * height);
       return `<g><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="#0f172a"/>
-<text x="${x + w / 2}" y="${y + h / 2 + 4}" text-anchor="middle" font-family="Helvetica, Arial, sans-serif"
+<text x="${x + w / 2}" y="${y + h / 2 + 4}" text-anchor="middle" font-family="DejaVu Sans, sans-serif"
       font-size="${Math.max(11, Math.min(16, h * 0.32))}" fill="#64748b">hidden</text></g>`;
     });
   if (boxes.length === 0) return null;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { matchesScreenshotShortcut } from "~/lib/screenshot-shortcuts";
+import { matchesScreenshotModifierPrep, matchesScreenshotShortcut } from "~/lib/screenshot-shortcuts";
 
 describe("matchesScreenshotShortcut", () => {
   it("detects PrintScreen", () => {
@@ -26,5 +26,23 @@ describe("matchesScreenshotShortcut", () => {
   it("ignores normal typing", () => {
     expect(matchesScreenshotShortcut({ key: "a" })).toBe(false);
     expect(matchesScreenshotShortcut({ key: "s", metaKey: true })).toBe(false);
+  });
+});
+
+describe("matchesScreenshotModifierPrep", () => {
+  it("detects Cmd+Shift when Shift is pressed second", () => {
+    expect(matchesScreenshotModifierPrep({ key: "Shift", metaKey: true, shiftKey: true })).toBe(
+      true,
+    );
+  });
+
+  it("detects Win+Shift when Shift is pressed second", () => {
+    expect(matchesScreenshotModifierPrep({ key: "Shift", osKey: true, shiftKey: true })).toBe(true);
+  });
+
+  it("ignores Shift alone or with unrelated modifiers", () => {
+    expect(matchesScreenshotModifierPrep({ key: "Shift" })).toBe(false);
+    expect(matchesScreenshotModifierPrep({ key: "Shift", metaKey: true })).toBe(false);
+    expect(matchesScreenshotModifierPrep({ key: "a", metaKey: true, shiftKey: true })).toBe(false);
   });
 });

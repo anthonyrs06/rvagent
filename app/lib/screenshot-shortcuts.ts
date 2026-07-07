@@ -40,6 +40,29 @@ export function matchesScreenshotShortcut({
   return false;
 }
 
+/**
+ * Fires when the second modifier of a screenshot combo is pressed — before the
+ * digit/S key on macOS/Windows. Best-effort: catches Cmd+Shift before 3/4/5.
+ */
+export function matchesScreenshotModifierPrep({
+  key,
+  metaKey = false,
+  shiftKey = false,
+  osKey = false,
+}: ShortcutKeys): boolean {
+  if (key !== "Shift") return false;
+  return (metaKey && shiftKey) || (osKey && shiftKey);
+}
+
+export function isScreenshotModifierPrep(event: KeyboardEvent): boolean {
+  return matchesScreenshotModifierPrep({
+    key: event.key,
+    metaKey: event.metaKey,
+    shiftKey: event.shiftKey,
+    osKey: event.getModifierState("OS"),
+  });
+}
+
 export function isScreenshotShortcut(event: KeyboardEvent): boolean {
   return matchesScreenshotShortcut({
     key: event.key,

@@ -9,6 +9,10 @@ import posthog from "posthog-js";
 import { useEffect, useRef } from "react";
 
 import { hashIdentifier } from "~/lib/posthog-privacy";
+import {
+  disableViewerPostHogRecording,
+  enableViewerPostHogRecording,
+} from "~/lib/posthog-viewer.client";
 import { SECURITY_EVENT_TYPES } from "~/lib/types";
 import { onViewerEvent } from "~/lib/viewer-events.client";
 
@@ -29,16 +33,9 @@ export function AnalyticsBridges({ token }: { token: string }) {
   // Viewer-only: opt in to capture + session replay for this route.
   useEffect(() => {
     if (!import.meta.env.VITE_PUBLIC_POSTHOG_TOKEN) return;
-
-    posthog.opt_in_capturing();
-    // Override sampling/linked-flag gates; recorder needs CSP script-src for *.posthog.com.
-    posthog.startSessionRecording({ sampling: true, linked_flag: true });
-
-    return () => {
-      posthog.stopSessionRecording();
-      posthog.opt_out_capturing();
-    };
-  }, [posthog]);
+    enableViewerPostHogRecording();
+    return () => disableViewerPostHogRecording();
+  }, []);
 
   useEffect(() => {
     if (!import.meta.env.VITE_PUBLIC_POSTHOG_TOKEN) return;

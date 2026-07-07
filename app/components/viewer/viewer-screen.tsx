@@ -112,6 +112,12 @@ export function ViewerScreen({ viewer }: { viewer: ViewerData }) {
   const hideContent = inactive || devtoolsOpen || screenshotGuard;
   const useHi = shouldUseHiTier(zoom);
 
+  const contentHiddenClass = hideContent
+    ? screenshotGuard
+      ? "opacity-0 blur-2xl brightness-0 transition-none"
+      : "blur-md brightness-50 transition"
+    : "transition";
+
   return (
     <main className="rv-viewer-root rv-noselect min-h-svh select-none bg-gray-950">
       <AnalyticsBridges token={viewer.token} />
@@ -124,61 +130,55 @@ export function ViewerScreen({ viewer }: { viewer: ViewerData }) {
 
       {screenshotGuard && (
         <div className="fixed inset-x-0 top-0 z-50 bg-red-600 px-4 py-2 text-center text-sm font-medium text-white">
-          Screenshot blocked — this session is logged.
+          Screenshot attempt detected — this session is logged.
         </div>
       )}
 
-      <ViewerToolbar
-        recipientLabel={viewer.recipientLabel}
-        zoom={zoom}
-        currentPage={currentPage}
-        pageCount={viewer.pageCount}
-        onZoomIn={() => setZoom((z) => stepZoom(z, 1))}
-        onZoomOut={() => setZoom((z) => stepZoom(z, -1))}
-        onFit={() => setZoom(1)}
-      />
+      <div className={contentHiddenClass}>
+        <ViewerToolbar
+          recipientLabel={viewer.recipientLabel}
+          zoom={zoom}
+          currentPage={currentPage}
+          pageCount={viewer.pageCount}
+          onZoomIn={() => setZoom((z) => stepZoom(z, 1))}
+          onZoomOut={() => setZoom((z) => stepZoom(z, -1))}
+          onFit={() => setZoom(1)}
+        />
 
-      {/* Deliberately no accessible text layer: pixels only. */}
-      <div aria-hidden="true" className="relative">
-        <div
-          className={
-            hideContent
-              ? screenshotGuard
-                ? "overflow-x-auto opacity-0 blur-2xl brightness-0 transition-none"
-                : "overflow-x-auto blur-md brightness-50 transition"
-              : "overflow-x-auto transition"
-          }
-        >
-          <div
-            className="mx-auto flex flex-col items-center gap-6 px-3 py-6 sm:px-6 sm:py-10"
-            style={{ width: `calc(min(100%, 900px) * ${zoom})` }}
-          >
-            {viewer.pages.map((page) => (
-              <CanvasPage
-                key={page.pageIndex}
-                meta={page}
-                useHiTier={useHi}
-                version={pageVersions[page.pageIndex] ?? 0}
-                revealZones={revealZonesByPage.get(page.pageIndex) ?? []}
-                onReveal={handleReveal}
-                registerEl={registerPageEl}
-              />
-            ))}
+        {/* Deliberately no accessible text layer: pixels only. */}
+        <div aria-hidden="true" className="relative">
+          <div className="overflow-x-auto">
+            <div
+              className="mx-auto flex flex-col items-center gap-6 px-3 py-6 sm:px-6 sm:py-10"
+              style={{ width: `calc(min(100%, 900px) * ${zoom})` }}
+            >
+              {viewer.pages.map((page) => (
+                <CanvasPage
+                  key={page.pageIndex}
+                  meta={page}
+                  useHiTier={useHi}
+                  version={pageVersions[page.pageIndex] ?? 0}
+                  revealZones={revealZonesByPage.get(page.pageIndex) ?? []}
+                  onReveal={handleReveal}
+                  registerEl={registerPageEl}
+                />
+              ))}
+            </div>
           </div>
+
+          {inactive && !screenshotGuard && (
+            <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center px-6">
+              <p className="rounded-lg border border-gray-800 bg-gray-950/90 px-6 py-4 text-center text-sm font-medium text-gray-200 shadow-2xl">
+                Content hidden while the window is inactive
+              </p>
+            </div>
+          )}
         </div>
 
-        {inactive && !screenshotGuard && (
-          <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center px-6">
-            <p className="rounded-lg border border-gray-800 bg-gray-950/90 px-6 py-4 text-center text-sm font-medium text-gray-200 shadow-2xl">
-              Content hidden while the window is inactive
-            </p>
-          </div>
-        )}
+        <footer className="px-4 pb-10 text-center text-xs text-gray-500">
+          {viewer.watermarkNotice} · Downloads and copying are disabled.
+        </footer>
       </div>
-
-      <footer className="px-4 pb-10 text-center text-xs text-gray-500">
-        {viewer.watermarkNotice} · Downloads and copying are disabled.
-      </footer>
     </main>
   );
 }
